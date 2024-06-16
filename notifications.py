@@ -1,4 +1,13 @@
 from telegram.ext import CallbackContext
+from telegram import Bot
+import os
+
+# Initialize your bot with the token from environment variable
+bot_token = os.getenv('BOT_TOKEN')
+if not bot_token:
+    raise RuntimeError('BOT_TOKEN environment variable is not set.')
+
+bot = Bot(bot_token)
 
 # Messages for notifications
 START_WORKDAY_MESSAGE_DRIVERS = "🚗 Work day: Notification system started! Get ready for a productive day ahead. 🌟"

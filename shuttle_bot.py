@@ -83,7 +83,7 @@ scheduler.add_job(
 scheduler.add_job(
     notifications.notify_workday_start_students,
     trigger='cron',
-    hour=6,  # Adjust the hour as per your requirement (e.g., 8 AM)
+    hour=6,  # Adjust the hour as per your requirement (e.g., 6 AM)
     minute=0,  # Adjust the minute as per your requirement
     id='workday_start_notification_students',
     args=[None]
@@ -92,7 +92,7 @@ scheduler.add_job(
 scheduler.add_job(
     notifications.notify_workday_end_students,
     trigger='cron',
-    hour=21,  # Adjust the hour as per your requirement (e.g., 5 PM)
+    hour=21,  # Adjust the hour as per your requirement (e.g., 9 PM)
     minute=0,  # Adjust the minute as per your requirement
     id='workday_end_notification_students',
     args=[None]
@@ -193,7 +193,7 @@ async def notify_drivers(context: CallbackContext) -> None:
     # Convert the list of pending requests to a set of request IDs for comparison
     current_pending_requests = set(request[0] for request in pending_requests)
     
-    group_chat_id = -1002232382285
+    group_chat_id = -XXXXXXXXXX
 
     # Check if there is any change in the pending requests
     if current_pending_requests != previous_pending_requests:
@@ -361,7 +361,7 @@ def main() -> None:
         listen="0.0.0.0",
         port=int(PORT),
         url_path=bot_token,
-        webhook_url=f'https://mcf-shuttle-bot-475ec9119eec.herokuapp.com/{bot_token}'
+        webhook_url=f'https://your_heroku_app_name.herokuapp.com/{bot_token}'
     )
 
 if __name__ == '__main__':

@@ -28,6 +28,22 @@ To use the bot, simply start a conversation with it on Telegram and use the foll
 - The bot includes a notification scheduler for drivers and students.
 - The bot includes a ride auto-completion feature.
 
+## Screenshots
+<p align="center">
+  <img src="https://github.com/Anthony-cloud-1/mcf_shuttle_bot/blob/main/Images/cmds.png" width="300" />
+  <img src="https://github.com/Anthony-cloud-1/mcf_shuttle_bot/blob/main/Images/notify_1.png" width="300" />
+</p>
+
+<p align="center">
+  <img src="https://github.com/Anthony-cloud-1/mcf_shuttle_bot/blob/main/Images/notify_2.png" width="300" />
+  <img src="https://github.com/Anthony-cloud-1/mcf_shuttle_bot/blob/main/Images/request_1.png" width="300" />
+</p>
+
+<p align="center">
+  <img src="https://github.com/Anthony-cloud-1/mcf_shuttle_bot/blob/main/Images/request_2.png" width="300" />
+  <img src="https://github.com/Anthony-cloud-1/mcf_shuttle_bot/blob/main/Images/restricted.png" width="300" />
+</p>
+
 ## Author
 
 - Anthony Sackey

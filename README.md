@@ -28,6 +28,12 @@ To use the bot, simply start a conversation with it on Telegram and use the foll
 - The bot includes a notification scheduler for drivers and students.
 - The bot includes a ride auto-completion feature.
 
+## Author
+
+- Anthony Sackey
+
 ## License
 
-This project is free.
+[![CC0](https://licensebuttons.net/p/zero/1.0/88x31.png)](https://creativecommons.org/publicdomain/zero/1.0/)
+
+To the extent possible under law, [Anthony Sackey](https://github.com/Anthony-cloud-1) has waived all copyright and related or neighboring rights to this work.

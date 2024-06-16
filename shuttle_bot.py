@@ -50,7 +50,7 @@ bot = Bot(bot_token)
 PORT = int(os.getenv('PORT',8080))
 
 # Define allowed group chat IDs
-ALLOWED_GROUP_CHAT_IDS = ["-1002232382285", "-1002248091028"]
+ALLOWED_GROUP_CHAT_IDS = ["-XXXXXXXXXX", "-XXXXXXXXXX"]
 
 def is_allowed_group(update: Update) -> bool:
     """Check if the message is from an allowed group."""

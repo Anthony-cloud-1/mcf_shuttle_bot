@@ -117,22 +117,30 @@ async def manage_notifications_based_on_hours(start_hour: int, start_minute: int
     global notifications_paused
     while True:
         now = datetime.now(timezone.utc).time()
+        current_day = datetime.now(timezone.utc).weekday()
         start_time = time(start_hour, start_minute)
         end_time = time(end_hour, end_minute)
+        
         logger.info(f"[DEBUG] Now: {now}")
         logger.info(f"[DEBUG] Current time: {now}")
         logger.info(f"[DEBUG] Start time: {start_time}")
         logger.info(f"[DEBUG] End time: {end_time}")
 
-        if start_time <= now < end_time:
+        # Check if today is Saturday (5) or Sunday (6)
+        if current_day in [5, 6]:
             if not notifications_paused:
-                logger.info(f"[DEBUG] Transitioning to paused state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
+                logger.info(f"[DEBUG] Pausing notifications for weekend: Current day: {current_day}")
                 notifications_paused = True
-        else:
-            if notifications_paused:
-                logger.info(f"[DEBUG] Transitioning to active state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
-                notifications_paused = False
 
+        else: 
+            if start_time <= now < end_time:
+                if not notifications_paused:
+                    logger.info(f"[DEBUG] Transitioning to paused state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
+                    notifications_paused = True
+            else:
+                if notifications_paused:
+                    logger.info(f"[DEBUG] Transitioning to active state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
+                    notifications_paused = False
 
         logger.info(f"[DEBUG] Current time: {now}, Start time: {start_time}, End time: {end_time}, Notifications paused: {notifications_paused}")
         await asyncio.sleep(5)  # Check every minute
@@ -143,15 +151,39 @@ async def start_tasks():
     await manage_notifications_based_on_hours(21, 0, 6, 0)
 
 WORKDAY_ENDED_MESSAGE = "The workday has ended. Please note that requests will be processed during the next workday."
+WEEKEND_MESSAGE = "Sorry! The bot does not process requests on weekends. 👌"
 
 def workday_check(func):
     async def wrapper(update: Update, context: CallbackContext, *args, **kwargs):
-        global notifications_paused
-        if notifications_paused:
+        now = datetime.now()
+        current_time = now.time()
+        current_day = now.weekday()  # Monday is 0 and Sunday is 6
+
+        start_time = time(21, 0)  # 21:00
+        end_time = time(6, 0)     # 06:00
+
+        # Check if today is Saturday (5) or Sunday (6)
+        if current_day in [5, 6]:
+            print(f"[DEBUG] Current day: {current_day}, Weekend restriction applied.")
+            await update.message.reply_text(WEEKEND_MESSAGE)
+        # Check if current time is within the restricted period
+        elif start_time <= current_time or current_time < end_time:
+            print(f"[DEBUG] Current time: {current_time}, Restriction applied.")
             await update.message.reply_text(WORKDAY_ENDED_MESSAGE)
         else:
+            print(f"[DEBUG] Current time: {current_time}, No restriction.")
             await func(update, context, *args, **kwargs)
-        return wrapper
+
+    return wrapper
+
+# def workday_check(func):
+#     async def wrapper(update: Update, context: CallbackContext, *args, **kwargs):
+#         global notifications_paused
+#         if notifications_paused:
+#             await update.message.reply_text(WORKDAY_ENDED_MESSAGE)
+#         else:
+#             await func(update, context, *args, **kwargs)
+#         return wrapper
 
 @workday_check
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -291,14 +323,20 @@ async def notify_drivers(context: CallbackContext) -> None:
         # Update the previous pending requests state
         previous_pending_requests = current_pending_requests
     else:
-        # Send the previous message along with the "No new ride requests" note
-        if previous_message:
-            message = previous_message + "\n\nNo new ride requests."
+        # Only send "No new ride requests" if there are actually no pending requests
+        if not current_pending_requests:
+            message = "No ride requests available."
+            await context.bot.send_message(group_chat_id, message)
+            print("No pending ride requests.")
         else:
-            message = "No new ride requests."
+            # Send the previous message along with the "No new ride requests" note
+            if previous_message:
+                message = previous_message + "\n\nNo new ride requests."
+            else:
+                message = "No new ride requests."
 
-        await context.bot.send_message(group_chat_id, message)
-        print("No change in pending ride requests.")
+            await context.bot.send_message(group_chat_id, message)
+            print("No change in pending ride requests.")
 
 @workday_check
 async def complete_ride_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

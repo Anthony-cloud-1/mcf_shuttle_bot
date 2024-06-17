@@ -9,6 +9,8 @@ This is a Telegram bot that allows users to request shuttle rides and manage the
 - Complete a ride
 - Get notified about workday start and end times
 - Automatic completion of rides
+- Restricted use to only specific groups or chats
+- Nofications pausing
 
 ## Usage
 

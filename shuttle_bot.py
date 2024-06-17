@@ -66,8 +66,7 @@ scheduler.add_job(
     trigger='cron',
     hour=6,  # Adjust the hour as per your requirement (e.g., 6 AM)
     minute=0,  # Adjust the minute as per your requirement
-    id='workday_start_notification_drivers',
-    args=[None]
+    id='workday_start_notification_drivers'
 )
 
 scheduler.add_job(
@@ -75,8 +74,7 @@ scheduler.add_job(
     trigger='cron',
     hour=21,  # Adjust the hour as per your requirement (e.g., 9 PM)
     minute=0,  # Adjust the minute as per your requirement
-    id='workday_end_notification_drivers',
-    args=[None]
+    id='workday_end_notification_drivers'
 )
 
 # Schedule workday start and end notifications for students
@@ -85,8 +83,7 @@ scheduler.add_job(
     trigger='cron',
     hour=6,  # Adjust the hour as per your requirement (e.g., 6 AM)
     minute=0,  # Adjust the minute as per your requirement
-    id='workday_start_notification_students',
-    args=[None]
+    id='workday_start_notification_students'
 )
 
 scheduler.add_job(
@@ -94,12 +91,14 @@ scheduler.add_job(
     trigger='cron',
     hour=21,  # Adjust the hour as per your requirement (e.g., 9 PM)
     minute=0,  # Adjust the minute as per your requirement
-    id='workday_end_notification_students',
-    args=[None]
+    id='workday_end_notification_students'
 )
 
 # Start the scheduler
 scheduler.start()
+
+# Global variable to control notification state
+notifications_paused = False
 
 # Manage notifications pause/resume based on driver's work hours
 # Example logic: pause notifications from 9 PM to 6 AM next day
@@ -113,10 +112,38 @@ async def manage_notifications_based_on_hours():
             notifications_paused = False
         await asyncio.sleep(60 * 30)  # Check every 30 minutes
 
+# Manage notifications for testing purposes
+# async def manage_notifications_based_on_hours(start_hour: 1, start_minute: 18, end_hour: 1, end_minute: 22):
+#     global notifications_paused
+#     while True:
+#         now = datetime.now()
+#         current_time = now.time()
+#         start_time = time(start_hour, start_minute)
+#         end_time = time(end_hour, end_minute)
+
+#         if start_time <= current_time < end_time:
+#             notifications_paused = False
+#         else:
+#             notifications_paused = True
+
+#         await asyncio.sleep(60)  # Check every minute
+
 # Start the coroutine for managing notifications
 async def start_tasks():
     await asyncio.create_task(manage_notifications_based_on_hours())
 
+WORKDAY_ENDED_MESSAGE = "The workday has ended. Please note that requests will be processed during the next workday."
+
+def workday_check(func):
+    async def wrapper(update: Update, context: CallbackContext, *args, **kwargs):
+        global notifications_paused
+        if notifications_paused:
+            await update.message.reply_text(WORKDAY_ENDED_MESSAGE)
+        else:
+            await func(update, context, *args, **kwargs)
+    return wrapper
+
+@workday_check
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_allowed_group(update):
         await update.message.reply_text('This bot is restricted to specific groups.')
@@ -129,6 +156,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         reply_markup=ForceReply(selective=True),
     )
 
+@workday_check
 async def ride(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_allowed_group(update):
         await update.message.reply_text('This bot is restricted to specific groups.')
@@ -174,18 +202,18 @@ async def ride(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except IndexError:
         await update.message.reply_text('Usage: /ride [Location] [Destination] [Time] [Purpose (class/switch/closed/other)]')
 
-# Global variable to control notification state
-notifications_paused = False
-
 # Track the state of pending ride requests
 previous_pending_requests = set()
+previous_message = ""
 
+@workday_check
 async def notify_drivers(context: CallbackContext) -> None:
     global notifications_paused
     if notifications_paused:
         return
 
     global previous_pending_requests
+    global previous_message
     
     pending_requests = rm.get_pending_ride_requests()
     logger.debug(f"Pending requests: {pending_requests}")
@@ -242,6 +270,9 @@ async def notify_drivers(context: CallbackContext) -> None:
             
             # Send message to group chat
             await context.bot.send_message(group_chat_id, message)
+
+            # Update the previous message
+            previous_message = message
         else:
             message = "No ride requests available."
             await context.bot.send_message(group_chat_id, message)
@@ -250,11 +281,16 @@ async def notify_drivers(context: CallbackContext) -> None:
         # Update the previous pending requests state
         previous_pending_requests = current_pending_requests
     else:
-        message = "No new ride requests."
+        # Send the previous message along with the "No new ride requests" note
+        if previous_message:
+            message = previous_message + "\n\nNo new ride requests."
+        else:
+            message = "No new ride requests."
+
         await context.bot.send_message(group_chat_id, message)
         print("No change in pending ride requests.")
 
-
+@workday_check
 async def complete_ride_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_allowed_group(update):
         await update.message.reply_text('This bot is restricted to specific groups.')
@@ -276,7 +312,7 @@ async def complete_ride_command(update: Update, context: ContextTypes.DEFAULT_TY
     except (IndexError, ValueError):
         await update.message.reply_text('Usage: /complete [RideID]')
 
-
+@workday_check
 async def cancel_ride_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_allowed_group(update):
         await update.message.reply_text('This bot can only be used in specific groups.')
@@ -316,7 +352,7 @@ async def cancel_ride_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         else:
             await update.message.reply_text('You have no pending ride requests to cancel.')
 
-
+@workday_check
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_allowed_group(update):
         await update.message.reply_text('This bot can only be used in specific groups.')

@@ -141,7 +141,7 @@ def workday_check(func):
             await update.message.reply_text(WORKDAY_ENDED_MESSAGE)
         else:
             await func(update, context, *args, **kwargs)
-    return wrapper
+        return wrapper
 
 @workday_check
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

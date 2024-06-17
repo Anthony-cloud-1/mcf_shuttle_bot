@@ -102,35 +102,45 @@ notifications_paused = False
 
 # Manage notifications pause/resume based on driver's work hours
 # Example logic: pause notifications from 9 PM to 6 AM next day
-async def manage_notifications_based_on_hours():
-    global notifications_paused
-    while True:
-        current_hour = datetime.now().hour
-        if current_hour >= 21 or current_hour < 6:
-            notifications_paused = True
-        else:
-            notifications_paused = False
-        await asyncio.sleep(60 * 30)  # Check every 30 minutes
-
-# Manage notifications for testing purposes
-# async def manage_notifications_based_on_hours(start_hour: 1, start_minute: 18, end_hour: 1, end_minute: 22):
+# async def manage_notifications_based_on_hours():
 #     global notifications_paused
 #     while True:
-#         now = datetime.now()
-#         current_time = now.time()
-#         start_time = time(start_hour, start_minute)
-#         end_time = time(end_hour, end_minute)
-
-#         if start_time <= current_time < end_time:
-#             notifications_paused = False
-#         else:
+#         current_hour = datetime.now().hour
+#         if current_hour >= 21 or current_hour < 6:
 #             notifications_paused = True
+#         else:
+#             notifications_paused = False
+#         await asyncio.sleep(60 * 30)  # Check every 30 minutes
 
-#         await asyncio.sleep(60)  # Check every minute
+# Manage notifications 
+async def manage_notifications_based_on_hours(start_hour: int, start_minute: int, end_hour: int, end_minute: int):
+    global notifications_paused
+    while True:
+        now = datetime.now(timezone.utc).time()
+        start_time = time(start_hour, start_minute)
+        end_time = time(end_hour, end_minute)
+        logger.info(f"[DEBUG] Now: {now}")
+        logger.info(f"[DEBUG] Current time: {now}")
+        logger.info(f"[DEBUG] Start time: {start_time}")
+        logger.info(f"[DEBUG] End time: {end_time}")
+
+        if start_time <= now < end_time:
+            if not notifications_paused:
+                logger.info(f"[DEBUG] Transitioning to paused state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
+                notifications_paused = True
+        else:
+            if notifications_paused:
+                logger.info(f"[DEBUG] Transitioning to active state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
+                notifications_paused = False
+
+
+        logger.info(f"[DEBUG] Current time: {now}, Start time: {start_time}, End time: {end_time}, Notifications paused: {notifications_paused}")
+        await asyncio.sleep(5)  # Check every minute
+
 
 # Start the coroutine for managing notifications
 async def start_tasks():
-    await asyncio.create_task(manage_notifications_based_on_hours())
+    await manage_notifications_based_on_hours(21, 0, 6, 0)
 
 WORKDAY_ENDED_MESSAGE = "The workday has ended. Please note that requests will be processed during the next workday."
 

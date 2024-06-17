@@ -401,6 +401,10 @@ def main() -> None:
     # Error handler registration
     application.add_error_handler(error_handler)
 
+    # Start the coroutine for managing notifications
+    loop = asyncio.get_event_loop()
+    loop.create_task(start_tasks())
+    
     # Start the Bot
     # application.run_polling()
     application.run_webhook(
@@ -412,10 +416,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-    loop = asyncio.get_event_loop()
-    try:
-        loop.run_until_complete(start_tasks())
-    except KeyboardInterrupt:
-        pass
-    finally:
-        loop.close()

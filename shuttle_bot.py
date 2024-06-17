@@ -134,13 +134,13 @@ async def manage_notifications_based_on_hours(start_hour: int, start_minute: int
 
         else: 
             if start_time <= now < end_time:
-                if not notifications_paused:
-                    logger.info(f"[DEBUG] Transitioning to paused state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
-                    notifications_paused = True
-            else:
                 if notifications_paused:
                     logger.info(f"[DEBUG] Transitioning to active state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
                     notifications_paused = False
+            else:
+                if not notifications_paused:
+                    logger.info(f"[DEBUG] Transitioning to paused state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
+                    notifications_paused = True
 
         logger.info(f"[DEBUG] Current time: {now}, Start time: {start_time}, End time: {end_time}, Notifications paused: {notifications_paused}")
         await asyncio.sleep(5)  # Check every minute

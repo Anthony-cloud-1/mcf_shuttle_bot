@@ -138,7 +138,7 @@ async def manage_notifications_based_on_hours(start_hour: int, start_minute: int
                     logger.info(f"[DEBUG] Transitioning to active state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
                     notifications_paused = False
             else:
-                if not notifications_paused:
+                if not notifications_paused and datetime.now(timezone.utc).date().weekday() != current_day:
                     logger.info(f"[DEBUG] Transitioning to paused state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
                     notifications_paused = True
 

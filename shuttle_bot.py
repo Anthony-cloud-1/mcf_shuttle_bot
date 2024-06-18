@@ -122,7 +122,7 @@ async def manage_notifications_based_on_hours(start_hour: int, start_minute: int
         end_time = time(end_hour, end_minute)
         
         logger.info(f"[DEBUG] Now: {now}")
-        logger.info(f"[DEBUG] Current time: {now}")
+        logger.info(f"[DEBUG] Current day: {current_day}")
         logger.info(f"[DEBUG] Start time: {start_time}")
         logger.info(f"[DEBUG] End time: {end_time}")
 

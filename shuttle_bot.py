@@ -118,8 +118,8 @@ async def manage_notifications_based_on_hours(start_hour: int, start_minute: int
     while True:
         now = datetime.now(timezone.utc).time()
         current_day = datetime.now(timezone.utc).weekday()
-        start_time = time(start_hour, start_minute)
-        end_time = time(end_hour, end_minute)
+        start_time = now.replace(hour=start_hour, minute=start_minute, second=0)
+        end_time = now.replace(hour=end_hour, minute=end_minute, second=0)
         
         logger.info(f"[DEBUG] Now: {now}")
         logger.info(f"[DEBUG] Current day: {current_day}")
@@ -138,7 +138,7 @@ async def manage_notifications_based_on_hours(start_hour: int, start_minute: int
                     logger.info(f"[DEBUG] Transitioning to active state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
                     notifications_paused = False
             else:
-                if not notifications_paused and datetime.now(timezone.utc).date().weekday() != current_day:
+                if not notifications_paused:
                     logger.info(f"[DEBUG] Transitioning to paused state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
                     notifications_paused = True
 

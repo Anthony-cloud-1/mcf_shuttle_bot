@@ -113,13 +113,14 @@ notifications_paused = False
 #         await asyncio.sleep(60 * 30)  # Check every 30 minutes
 
 # Manage notifications 
-async def manage_notifications_based_on_hours(start_hour: int, start_minute: int, end_hour: int, end_minute: int):
+async def manage_notifications_based_on_hours():
     global notifications_paused
+
     while True:
         now = datetime.now(timezone.utc).time()
         current_day = datetime.now(timezone.utc).weekday()
-        start_time = now.replace(hour=start_hour, minute=start_minute, second=0)
-        end_time = now.replace(hour=end_hour, minute=end_minute, second=0)
+        start_time = time(20, 0)
+        end_time = time(6, 0)
         
         logger.info(f"[DEBUG] Now: {now}")
         logger.info(f"[DEBUG] Current day: {current_day}")
@@ -133,22 +134,21 @@ async def manage_notifications_based_on_hours(start_hour: int, start_minute: int
                 notifications_paused = True
 
         else: 
-            if start_time <= now < end_time:
-                if notifications_paused:
-                    logger.info(f"[DEBUG] Transitioning to active state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
-                    notifications_paused = False
-            else:
+            if start_time <= now or now < end_time:
                 if not notifications_paused:
                     logger.info(f"[DEBUG] Transitioning to paused state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
                     notifications_paused = True
+            else:
+                if notifications_paused:
+                    logger.info(f"[DEBUG] Transitioning to active state: Current time: {now}, Start time: {start_time}, End time: {end_time}")
+                    notifications_paused = False
 
         logger.info(f"[DEBUG] Current time: {now}, Start time: {start_time}, End time: {end_time}, Notifications paused: {notifications_paused}")
-        await asyncio.sleep(5)  # Check every minute
-
+        await asyncio.sleep(60)  # Check every minute
 
 # Start the coroutine for managing notifications
 async def start_tasks():
-    await manage_notifications_based_on_hours(21, 0, 6, 0)
+    await manage_notifications_based_on_hours()
 
 WORKDAY_ENDED_MESSAGE = "The workday has ended. Please note that requests will be processed during the next workday."
 WEEKEND_MESSAGE = "Sorry! The bot does not process requests on weekends. 👌"

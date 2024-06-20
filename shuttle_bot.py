@@ -400,6 +400,45 @@ async def cancel_ride_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         else:
             await update.message.reply_text('You have no pending ride requests to cancel.')
 
+# Define the group chat IDs
+DRIVERS_GROUP_CHAT_ID = -XXXXXXXXXX
+STUDENTS_GROUP_CHAT_ID = -XXXXXXXXXX
+
+# Function to check if there are pending ride requests
+def has_pending_rides() -> bool:
+    pending_requests = rm.get_pending_ride_requests()
+    return len(pending_requests) > 0
+
+# Handler for note_requests command
+@workday_check
+async def note_requests(update: Update, context: CallbackContext) -> None:
+    if update.effective_chat.id != DRIVERS_GROUP_CHAT_ID:
+        await update.message.reply_text("This command can only be used by drivers.")
+        return
+    
+    if not has_pending_rides():
+        await update.message.reply_text("No pending ride requests to notify.")
+        return
+    
+    # Notify the students group
+    await context.bot.send_message(STUDENTS_GROUP_CHAT_ID, "All ride requests have been noted.")
+    await update.message.reply_text("Notified the students group that all ride requests have been noted.")
+
+# Handler for en_route command
+@workday_check
+async def en_route(update: Update, context: CallbackContext) -> None:
+    if update.effective_chat.id != DRIVERS_GROUP_CHAT_ID:
+        await update.message.reply_text("This command can only be used by drivers.")
+        return
+    
+    if not has_pending_rides():
+        await update.message.reply_text("No pending ride requests to notify.")
+        return
+    
+    # Notify the students group
+    await context.bot.send_message(STUDENTS_GROUP_CHAT_ID, "The bus is now en route.")
+    await update.message.reply_text("Notified the students group that the bus is en route.")
+
 @workday_check
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_allowed_group(update):
@@ -431,11 +470,14 @@ def main() -> None:
     application.add_handler(CommandHandler("ride", ride))
     application.add_handler(CommandHandler("cancel", cancel_ride_command))
     application.add_handler(CommandHandler("complete", complete_ride_command))
+    application.add_handler(CommandHandler("noted", note_requests))
+    application.add_handler(CommandHandler("en_route", en_route))
     application.add_handler(CommandHandler("help", help_command))
 
     # Schedule job to notify drivers periodically
     application.job_queue.run_repeating(notify_drivers, interval=900, first=0)  # Every 15 mins
-    application.job_queue.run_repeating(lambda context: rm.auto_complete_rides(), interval=300, first=0)  # Every 5 mins
+    # application.job_queue.run_repeating(lambda context: rm.auto_complete_rides(), interval=300, first=0)  # Every 5 mins
+    application.job_queue.run_repeating(rm.auto_complete_rides_wrapper, interval=300, first=0)
     # Error handler registration
     application.add_error_handler(error_handler)
 

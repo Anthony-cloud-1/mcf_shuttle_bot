@@ -96,3 +96,6 @@ def auto_complete_rides():
         AND time >= ?
     ''', (cutoff_time, previous_departure_time))
     conn.commit()
+
+def auto_complete_rides_wrapper(context: CallbackContext):
+    auto_complete_rides()

@@ -87,20 +87,26 @@ def manage_weekend_jobs():
 async def clear_messages():
     for chat_id in ALLOWED_GROUP_CHAT_IDS:
         try:
-            # Get the list of messages to delete
             message_ids = []
             async for message in bot.get_chat_history(chat_id):
                 message_ids.append(message.message_id)
-                if len(message_ids) >= 100:  # Adjust batch size as needed
-                    break
+                if len(message_ids) % 100 == 0:  # Clear in chunks of 100
+                    for message_id in message_ids:
+                        try:
+                            await bot.delete_message(chat_id, message_id)
+                            print("Messages cleared successfully.")
+                        except BadRequest as e:
+                            print(f"Failed to delete message {message_id} in chat {chat_id}: {e}")
+                    message_ids.clear()
 
-            # Delete messages in batches
+            # Clear remaining messages
             for message_id in message_ids:
                 try:
                     await bot.delete_message(chat_id, message_id)
-                    print("All messages cleared successfully")
+                    print("All messages cleared successfully.")
                 except BadRequest as e:
                     print(f"Failed to delete message {message_id} in chat {chat_id}: {e}")
+
         except Exception as e:
             print(f"Error clearing messages in chat {chat_id}: {e}")
 

@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime, timezone
 from telegram import Update, ForceReply, Bot
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackContext
+from telegram.error import BadRequest
 import ride_manager as rm
 import subprocess
 import sys
@@ -60,21 +61,64 @@ def is_allowed_group(update: Update) -> bool:
 # Initialize the scheduler
 scheduler = AsyncIOScheduler()
 
+# Define job IDs for easier management
+driver_start_job_id = 'workday_start_notification_drivers'
+driver_end_job_id = 'workday_end_notification_drivers'
+student_start_job_id = 'workday_start_notification_students'
+student_end_job_id = 'workday_end_notification_students'
+
+# Function to enable or disable jobs based on the current day
+def manage_weekend_jobs():
+    current_day = datetime.now().weekday()  # Monday is 0, Sunday is 6
+
+    if current_day in [5, 6]:  # If it's Saturday (5) or Sunday (6)
+        # Disable the jobs
+        scheduler.pause_job(driver_start_job_id)
+        scheduler.pause_job(driver_end_job_id)
+        scheduler.pause_job(student_start_job_id)
+        scheduler.pause_job(student_end_job_id)
+    else:
+        # Enable the jobs
+        scheduler.resume_job(driver_start_job_id)
+        scheduler.resume_job(driver_end_job_id)
+        scheduler.resume_job(student_start_job_id)
+        scheduler.resume_job(student_end_job_id)
+
+async def clear_messages():
+    for chat_id in ALLOWED_GROUP_CHAT_IDS:
+        try:
+            # Get the list of messages to delete
+            message_ids = []
+            async for message in bot.get_chat_history(chat_id):
+                message_ids.append(message.message_id)
+                if len(message_ids) >= 100:  # Adjust batch size as needed
+                    break
+
+            # Delete messages in batches
+            for message_id in message_ids:
+                try:
+                    await bot.delete_message(chat_id, message_id)
+                    print("All messages cleared successfully")
+                except BadRequest as e:
+                    print(f"Failed to delete message {message_id} in chat {chat_id}: {e}")
+        except Exception as e:
+            print(f"Error clearing messages in chat {chat_id}: {e}")
+
 # Schedule workday start and end notifications for drivers
 scheduler.add_job(
     notifications.notify_workday_start_drivers,
     trigger='cron',
     hour=6,  # Adjust the hour as per your requirement (e.g., 6 AM)
     minute=0,  # Adjust the minute as per your requirement
-    id='workday_start_notification_drivers'
+    id=driver_start_job_id
 )
 
 scheduler.add_job(
     notifications.notify_workday_end_drivers,
     trigger='cron',
-    hour=21,  # Adjust the hour as per your requirement (e.g., 9 PM)
-    minute=0,  # Adjust the minute as per your requirement
-    id='workday_end_notification_drivers'
+    hour=20,  # Adjust the hour as per your requirement (e.g., 8 PM)
+    minute=30,  # Adjust the minute as per your requirement
+    id=driver_end_job_id
 )
 
 # Schedule workday start and end notifications for students
@@ -83,15 +127,33 @@ scheduler.add_job(
     trigger='cron',
     hour=6,  # Adjust the hour as per your requirement (e.g., 6 AM)
     minute=0,  # Adjust the minute as per your requirement
-    id='workday_start_notification_students'
+    id=student_start_job_id
 )
 
 scheduler.add_job(
     notifications.notify_workday_end_students,
     trigger='cron',
-    hour=21,  # Adjust the hour as per your requirement (e.g., 9 PM)
-    minute=0,  # Adjust the minute as per your requirement
-    id='workday_end_notification_students'
+    hour=20,  # Adjust the hour as per your requirement (e.g., 8 PM)
+    minute=30,  # Adjust the minute as per your requirement
+    id=student_end_job_id
+)
+
+# Schedule the weekend management job to run daily at midnight
+scheduler.add_job(
+    manage_weekend_jobs,
+    trigger='cron',
+    hour=0,
+    minute=0,
+    id='manage_weekend_jobs'
+)
+
+# Schedule the job to clear messages in both groups after midnight
+scheduler.add_job(
+    clear_messages,
+    trigger='cron',
+    hour=0,
+    minute=1,  # Run slightly after midnight to avoid timing issues
+    id='clear_messages_job'
 )
 
 # Start the scheduler

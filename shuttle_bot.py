@@ -400,6 +400,44 @@ async def cancel_ride_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         else:
             await update.message.reply_text('You have no pending ride requests to cancel.')
 
+@workday_check
+async def bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+
+    # Fetch the user's rides from the database
+    pending_rides = rm.get_user_pending_rides(user_id)
+    completed_rides = rm.get_user_completed_rides(user_id)
+
+    # Format the message
+    message = "🚗 Your Ride Bookings:\n\n"
+
+    if pending_rides:
+        message += "📅 Pending Rides:\n"
+        for idx, ride in enumerate(pending_rides, 1):
+            location = ride[2]  # Location is the third column
+            destination = ride[3]  # Destination is the fourth column
+            ride_id = ride[0]  # Ride_id is the first column
+            time = datetime.strptime(ride[4], '%H:%M').strftime("%H:%M")  # Time is the fifth column
+            purpose = ride[5]
+            message += f"{idx}. From {location} to {destination} at {time} for {purpose} (ID: {ride_id})\n"
+    else:
+        message += "📅 Pending Rides:\nNone\n"
+
+    if completed_rides:
+        message += "\n✅ Completed Rides:\n"
+        for idx, ride in enumerate(completed_rides, 1):
+            location = ride[2]  # Location is the third column
+            destination = ride[3]  # Destination is the fourth column
+            ride_id = ride[0]  # Ride_id is the first column
+            time = datetime.strptime(ride[4], '%H:%M').strftime("%H:%M")  # Time is the fifth column
+            purpose = ride[5]
+            message += f"{idx}. From {location} to {destination} at {time} for {purpose} (ID: {ride_id})\n"
+    else:
+        message += "\n✅ Completed Rides:\nNone\n"
+
+    # Send the message to the user
+    await update.message.reply_text(message)
+
 # Define the group chat IDs
 DRIVERS_GROUP_CHAT_ID = -XXXXXXXXXX
 STUDENTS_GROUP_CHAT_ID = -XXXXXXXXXX
@@ -470,6 +508,7 @@ def main() -> None:
     application.add_handler(CommandHandler("ride", ride))
     application.add_handler(CommandHandler("cancel", cancel_ride_command))
     application.add_handler(CommandHandler("complete", complete_ride_command))
+    application.add_handler(CommandHandler("bookings", bookings))
     application.add_handler(CommandHandler("noted", note_requests))
     application.add_handler(CommandHandler("en_route", en_route))
     application.add_handler(CommandHandler("help", help_command))

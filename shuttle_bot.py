@@ -625,10 +625,6 @@ async def bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Send the message to the user
     await update.message.reply_text(message)
 
-# Define the group chat IDs
-DRIVERS_GROUP_CHAT_ID = -XXXXXXXXXX
-STUDENTS_GROUP_CHAT_ID = -XXXXXXXXXX
-
 # Function to check if there are pending ride requests
 def has_pending_rides() -> bool:
     pending_requests = rm.get_pending_ride_requests()

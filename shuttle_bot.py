@@ -53,6 +53,10 @@ PORT = int(os.getenv('PORT',8080))
 # Define allowed group chat IDs
 ALLOWED_GROUP_CHAT_IDS = ["-XXXXXXXXXX", "-XXXXXXXXXX"]
 
+# Define the group chat IDs
+DRIVERS_GROUP_CHAT_ID = -XXXXXXXXXX
+STUDENTS_GROUP_CHAT_ID = -XXXXXXXXXX
+
 def is_allowed_group(update: Update) -> bool:
     """Check if the message is from an allowed group."""
     chat_id = str(update.effective_chat.id)
@@ -244,15 +248,6 @@ def workday_check(func):
 
     return wrapper
 
-# def workday_check(func):
-#     async def wrapper(update: Update, context: CallbackContext, *args, **kwargs):
-#         global notifications_paused
-#         if notifications_paused:
-#             await update.message.reply_text(WORKDAY_ENDED_MESSAGE)
-#         else:
-#             await func(update, context, *args, **kwargs)
-#         return wrapper
-
 @workday_check
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_allowed_group(update):
@@ -382,8 +377,6 @@ async def notify_drivers(context: CallbackContext) -> None:
     # Convert the list of pending requests to a set of request IDs for comparison
     current_pending_requests = set(request[0] for request in pending_requests)
     
-    group_chat_id = -XXXXXXXXXX
-
     # Check if there is any change in the pending requests
     if current_pending_requests != previous_pending_requests:
         high_priority_requests = []
@@ -430,13 +423,13 @@ async def notify_drivers(context: CallbackContext) -> None:
             message += f"Total number of requests: {total_requests}"
             
             # Send message to group chat
-            await context.bot.send_message(group_chat_id, message)
+            await context.bot.send_message(DRIVERS_GROUP_CHAT_ID, message)
 
             # Update the previous message
             previous_message = message
         else:
             message = "No ride requests available."
-            await context.bot.send_message(group_chat_id, message)
+            await context.bot.send_message(DRIVERS_GROUP_CHAT_ID, message)
             print("No pending ride requests.")
         
         # Update the previous pending requests state
@@ -445,7 +438,7 @@ async def notify_drivers(context: CallbackContext) -> None:
         # Only send "No new ride requests" if there are actually no pending requests
         if not current_pending_requests:
             message = "No ride requests available."
-            await context.bot.send_message(group_chat_id, message)
+            await context.bot.send_message(DRIVERS_GROUP_CHAT_ID, message)
             print("No pending ride requests.")
         else:
             # Send the previous message along with the "No new ride requests" note
@@ -454,7 +447,7 @@ async def notify_drivers(context: CallbackContext) -> None:
             else:
                 message = "No new ride requests."
 
-            await context.bot.send_message(group_chat_id, message)
+            await context.bot.send_message(DRIVERS_GROUP_CHAT_ID, message)
             print("No change in pending ride requests.")
 
 @workday_check

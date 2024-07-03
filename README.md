@@ -21,8 +21,8 @@ To use the bot, simply start a conversation with it on Telegram and use the foll
 - `/start`: Start the bot and see the welcome message.
 - `/ride [Location] [Destination] [Time] [Purpose]`: Request a shuttle ride. Example: `/ride Library Dormitory 14:00 class`
 - `/ride_for [Name] [Location] [Destination] [Time] [Purpose]`: Request a shuttle ride on behalf of a colleague. Example: `/ride Anthony Library Dormitory 14:00 class`
-- `/cancel [RideID] (optional)`: Cancel your most recent ride or a specific ride by ID. Example: `/cancel` or `/cancel 123`
-- `/complete [RideID]`: Manually mark a ride as completed. Example: `/complete 123`
+- `/cancel [RideID] (optional ride ID parameter)`: Cancel your most recent ride or a specific ride by ID. Example: `/cancel` or `/cancel 123`
+- `/complete [RideID] (optional ride ID parameter)`: Manually mark a ride as completed. Example: `/complete 123`
 - `/noted` : For drivers use only.
 - `/en_route` : For drivers use only.
 - `/help`: Show this help message.

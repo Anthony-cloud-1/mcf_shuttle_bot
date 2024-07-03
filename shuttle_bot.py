@@ -1,8 +1,8 @@
 import logging
 import sqlite3
 from datetime import datetime, timezone
-from telegram import Update, ForceReply, Bot
-from telegram.ext import Application, CommandHandler, ContextTypes, CallbackContext
+from telegram import Update, ForceReply, Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackContext, CallbackQueryHandler
 from telegram.error import BadRequest
 import ride_manager as rm
 import subprocess
@@ -312,6 +312,57 @@ async def ride(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except IndexError:
         await update.message.reply_text('Usage: /ride [Location] [Destination] [Time] [Purpose (class/switch/closed/other)]')
 
+@workday_check
+async def ride_for(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not is_allowed_group(update):
+        await update.message.reply_text('This bot is restricted to specific groups.')
+        return
+
+    try:
+        details = context.args
+        if len(details) < 5:
+            await update.message.reply_text('Usage: /ride_for [Name] [Location] [Destination] [Time] [Purpose (class/switch/closed/other)]')
+            return
+        
+        name = details[0]
+        location = details[1]
+        destination = details[2]
+        time = details[3]
+        purpose = details[4].lower()
+
+        if purpose not in ['class', 'switch', 'closed', 'other']:
+            await update.message.reply_text('Purpose must be one of: class, switch, closed, other.')
+            return
+
+        # Parse the requested time
+        try:
+            requested_time = datetime.strptime(time, "%H:%M")
+        except ValueError:
+            await update.message.reply_text('Invalid time format. Please provide time in HH:MM format (e.g., 14:30).')
+            return
+
+        # Combine with current date and convert to UTC
+        current_date = datetime.now().date()
+        requested_datetime = datetime.combine(current_date, requested_time.time(), tzinfo=timezone.utc)
+
+        # Get current time in UTC
+        current_time_utc = datetime.now(timezone.utc)
+
+        # Check if the requested time is in the past
+        if requested_datetime < current_time_utc:
+            await update.message.reply_text('You cannot request a ride in the past. Please provide a valid time.')
+            return
+
+        # Save the ride request to the database
+        ride_id = rm.save_ride_request(name, location, destination, time, purpose)
+
+        if ride_id:
+            await update.message.reply_text(f'Ride requested from {location} to {destination} at {time} for {purpose} on behalf of {name}. Your ride ID is {ride_id}.')
+        else:
+            await update.message.reply_text(f'{name} already has a ride booked for {time}. Please cancel the current request before booking a new one.')
+    except IndexError:
+        await update.message.reply_text('Usage: /ride_for [Name] [Location] [Destination] [Time] [Purpose (class/switch/closed/other)]')
+
 # Track the state of pending ride requests
 previous_pending_requests = set()
 previous_message = ""
@@ -412,21 +463,68 @@ async def complete_ride_command(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text('This bot is restricted to specific groups.')
         return
 
-    try:
-        ride_id = int(context.args[0])  # Assuming RideID is an integer
+    user_id = update.effective_user.id
 
-        # Retrieve complete ride data
-        ride = rm.get_ride_status(ride_id)
+    if context.args:
+        try:
+            ride_id = int(context.args[0])  # Assuming RideID is an integer
+            logger.info(f'User {user_id} is attempting to complete ride ID: {ride_id}')
+
+            # Retrieve ride data
+            ride = rm.get_ride_status(ride_id)
+            
+            if ride is None:
+                await update.message.reply_text(f'No such ride ID {ride_id} exists.')
+
+            else:
+                try:
+                    if int(ride[1]) == user_id:
+                        if ride[6] == 'completed':
+                            await update.message.reply_text(f'Ride request {ride_id} has already been marked as completed.')
+                        else:
+                            rm.mark_ride_completed(ride_id)
+                            await update.message.reply_text(f'Ride request {ride_id} has been marked as completed.')
+                    else:
+                        await update.message.reply_text(f'No such ride ID {ride_id} exists or it does not belong to you.')
+                except ValueError:
+                    # Handle case where ride[1] is not an integer (i.e., booked on behalf of someone else)
+                    keyboard = [
+                        [
+                            InlineKeyboardButton("Yes", callback_data=f'complete_ride_confirm_{ride_id}'),
+                            InlineKeyboardButton("No", callback_data=f'complete_ride_cancel_{ride_id}')
+                        ]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    await update.message.reply_text(f'This ride was booked on behalf of {ride[1]}. Do you want to complete it?', reply_markup=reply_markup)
+        except (IndexError, ValueError):
+            await update.message.reply_text('Usage: /complete [RideID] or /complete')
+    else:
+        pending_rides = rm.get_user_pending_rides(user_id)
         
-        if ride is None:
-            await update.message.reply_text(f'No such ride ID {ride_id} exists.')
-        elif ride[6] == 'completed':
-            await update.message.reply_text(f'Ride request {ride_id} has already been marked as completed.')
-        else:
+        if pending_rides:
+            most_recent_ride = pending_rides[0]  # Get the most recent pending ride
+            ride_id = most_recent_ride[0]
             rm.mark_ride_completed(ride_id)
-            await update.message.reply_text(f'Ride request {ride_id} has been marked as completed.')
-    except (IndexError, ValueError):
-        await update.message.reply_text('Usage: /complete [RideID]')
+            await update.message.reply_text(f'Your most recent ride request (ID: {ride_id}) has been marked as completed.')
+        else:
+            await update.message.reply_text('You have no pending ride requests to complete.')
+
+@workday_check
+async def complete_ride_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    ride_id = int(query.data.split('_')[-1])
+
+    ride = rm.get_ride_status(ride_id)
+    if ride[6] != 'completed':
+        rm.mark_ride_completed(ride_id)
+        await query.edit_message_text(f'Ride request {ride_id} has been marked as completed.')
+    else:
+        await query.edit_message_text(f'Ride request {ride_id} is already completed.')
+
+@workday_check
+async def complete_ride_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.edit_message_text('Action canceled.')
 
 @workday_check
 async def cancel_ride_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -445,14 +543,25 @@ async def cancel_ride_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             ride = rm.get_ride_status(ride_id)
             if ride:
                 logger.info(f'Ride found: {ride}')
-                if int(ride[1]) == user_id:  # Check if the ride belongs to the user
-                    if ride[6] == 'completed':  # Check if the ride is already completed
-                        await update.message.reply_text(f'Ride request {ride_id} has been completed already hence it cannot be canceled.')
+                try:
+                    if int(ride[1]) == user_id:  # Check if the ride belongs to the user
+                        if ride[6] == 'completed':  # Check if the ride is already completed
+                            await update.message.reply_text(f'Ride request {ride_id} has been completed already hence it cannot be canceled.')
+                        else:
+                            rm.cancel_ride(ride_id)
+                            await update.message.reply_text(f'Ride request (ID: {ride_id}) has been canceled.')
                     else:
-                        rm.cancel_ride(ride_id)
-                        await update.message.reply_text(f'Ride request (ID: {ride_id}) has been canceled.')
-                else:
-                    await update.message.reply_text(f'No such ride ID {ride_id} exists or it does not belong to you.')
+                        await update.message.reply_text(f'No such ride ID {ride_id} exists or it does not belong to you.')
+                except ValueError:
+                        # Check if the ride was booked for someone else
+                        keyboard = [
+                            [
+                                InlineKeyboardButton("Yes", callback_data=f'cancel_ride_confirm_{ride_id}'),
+                                InlineKeyboardButton("No", callback_data=f'cancel_ride_cancel_{ride_id}')
+                            ]
+                        ]
+                        reply_markup = InlineKeyboardMarkup(keyboard)
+                        await update.message.reply_text(f'This ride was booked on behalf of {ride[1]}. Do you want to cancel it?', reply_markup=reply_markup)
             else:
                 await update.message.reply_text(f'No such ride ID {ride_id} exists.')
         except ValueError:
@@ -467,6 +576,23 @@ async def cancel_ride_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text(f'Your most recent ride request (ID: {ride_id}) has been canceled.')
         else:
             await update.message.reply_text('You have no pending ride requests to cancel.')
+
+@workday_check
+async def cancel_ride_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    ride_id = int(query.data.split('_')[-1])
+
+    ride = rm.get_ride_status(ride_id)
+    if ride and ride[6] == 'completed':
+        await query.edit_message_text(f'Ride request {ride_id} has been completed already hence it cannot be canceled.')
+    else:
+        rm.cancel_ride(ride_id)
+        await update.message.reply_text(f'Ride request (ID: {ride_id}) has been canceled.')
+
+@workday_check
+async def cancel_ride_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.edit_message_text('Action canceled.')
 
 @workday_check
 async def bookings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -555,8 +681,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "Hi! I'm the Shuttle Bot. Here's how you can use me:\n\n"
         "/start - Start the bot and see the welcome message.\n"
         "/ride [Location] [Destination] [Time] [Purpose] - Request a shuttle ride. Example: /ride Library Dormitory 14:00 class\n"
-        "/cancel_ride [RideID] (optional) - Cancel your most recent ride or a specific ride by ID. Example: /cancel or /cancel 123\n"
-        "/complete [RideID] - Manually mark a ride as completed. Example: /complete 123\n"
+        "/ride_for [Name] [Location] [Destination] [Time] [Purpose] - Request a shuttle ride on behalf of a colleague. Example: /ride_for Anthony CCB MCF 14:00 class\n"
+        "/cancel [RideID] (optional) - Cancel your most recent ride or a specific ride by ID. Example: /cancel or /cancel 123\n"
+        "/complete [RideID] (optional) - Manually mark a ride as completed. Example: /complete or /complete 123\n"
+        "/noted - For drivers use only.\n"
+        "/en_route - For drivers use only.\n"
         "/help - Show this help message.\n"
         "Note: The purpose can be one of the following: class, switch, closed, other.\n"
     )
@@ -575,7 +704,11 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ride", ride))
     application.add_handler(CommandHandler("cancel", cancel_ride_command))
+    application.add_handler(CallbackQueryHandler(cancel_ride_confirm, pattern='^cancel_ride_confirm_'))
+    application.add_handler(CallbackQueryHandler(cancel_ride_cancel, pattern='^cancel_ride_cancel_'))
     application.add_handler(CommandHandler("complete", complete_ride_command))
+    application.add_handler(CallbackQueryHandler(complete_ride_confirm, pattern='^complete_ride_confirm_'))
+    application.add_handler(CallbackQueryHandler(complete_ride_cancel, pattern='^complete_ride_cancel_'))
     application.add_handler(CommandHandler("bookings", bookings))
     application.add_handler(CommandHandler("noted", note_requests))
     application.add_handler(CommandHandler("en_route", en_route))
@@ -593,7 +726,11 @@ def main() -> None:
     loop.create_task(start_tasks())
     
     # Start the Bot
+    
+    # Polling method
     # application.run_polling()
+
+    # Webhook method
     application.run_webhook(
         listen="0.0.0.0",
         port=int(PORT),

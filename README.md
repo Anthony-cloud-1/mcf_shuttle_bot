@@ -5,12 +5,14 @@ This is a Telegram bot that allows users to request shuttle rides and manage the
 ## Features
 
 - Request a shuttle ride
+- Request a ride on behalf of a colleague
 - Cancel a ride request
 - Complete a ride
 - Get notified about workday start and end times
 - Automatic completion of rides
 - Restricted use to only specific groups or chats
 - Nofications pausing
+- Bus en_route notification
 
 ## Usage
 
@@ -18,8 +20,11 @@ To use the bot, simply start a conversation with it on Telegram and use the foll
 
 - `/start`: Start the bot and see the welcome message.
 - `/ride [Location] [Destination] [Time] [Purpose]`: Request a shuttle ride. Example: `/ride Library Dormitory 14:00 class`
-- `/cancel_ride [RideID] (optional)`: Cancel your most recent ride or a specific ride by ID. Example: `/cancel` or `/cancel 123`
+- `/ride_for [Name] [Location] [Destination] [Time] [Purpose]`: Request a shuttle ride on behalf of a colleague. Example: `/ride Anthony Library Dormitory 14:00 class`
+- `/cancel [RideID] (optional)`: Cancel your most recent ride or a specific ride by ID. Example: `/cancel` or `/cancel 123`
 - `/complete [RideID]`: Manually mark a ride as completed. Example: `/complete 123`
+- `/noted` : For drivers use only.
+- `/en_route` : For drivers use only.
 - `/help`: Show this help message.
 
 ## Notes
